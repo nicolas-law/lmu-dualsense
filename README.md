@@ -41,7 +41,7 @@ This is the same shared memory format used by [CrewChief V4](https://gitlab.com/
 <Steam library>/steamapps/common/Le Mans Ultimate/Plugins/
 ```
 
-Typical full path on Bazzite:
+Typical full path on Bazzite (the game root, **not** a Bin64 subfolder):
 
 ```
 ~/.steam/steam/steamapps/common/Le Mans Ultimate/Plugins/LMU_SharedMemoryMapPlugin64.dll
