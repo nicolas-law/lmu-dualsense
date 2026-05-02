@@ -18,6 +18,7 @@ import ctypes
 
 class _Vec3(ctypes.Structure):
     _pack_ = 4
+    _layout_ = "ms"
     _fields_ = [
         ("x", ctypes.c_double),
         ("y", ctypes.c_double),
@@ -34,13 +35,14 @@ class _Wheel(ctypes.Structure):
     """rF2VehicleWheelTelemetry.  Wheel order in parent array: FL=0 FR=1 RL=2 RR=3."""
 
     _pack_ = 4
+    _layout_ = "ms"
     _fields_ = [
         ("mSuspensionDeflection", ctypes.c_double),
         ("mRideHeight", ctypes.c_double),
         ("mSuspForce", ctypes.c_double),
         ("mBrakeTemp", ctypes.c_double),
         ("mBrakePressure", ctypes.c_double),
-        ("mRotation", ctypes.c_double),           # rad/s, positive = forward
+        ("mRotation", ctypes.c_double),  # rad/s, positive = forward
         ("mLateralPatchVel", _Vec3),
         ("mLongitudinalPatchVel", _Vec3),
         ("mLateralGroundVel", _Vec3),
@@ -49,7 +51,7 @@ class _Wheel(ctypes.Structure):
         ("mLateralForce", _Vec3),
         ("mLongitudinalForce", _Vec3),
         ("mTireLoad", _Vec3),
-        ("mGripFract", ctypes.c_double),          # 0 = full grip, ~1 = full slide
+        ("mGripFract", ctypes.c_double),  # 0 = full grip, ~1 = full slide
         ("mPressure", ctypes.c_double),
         ("mTemperature", ctypes.c_double * 3),
         ("mWear", ctypes.c_double),
@@ -76,21 +78,28 @@ class _VehicleTelemetry(ctypes.Structure):
     """rF2VehicleTelemetry.  Index 0 in the buffer is always the player's car."""
 
     _pack_ = 4
+    _layout_ = "ms"
     _fields_ = [
         ("mID", ctypes.c_int),
+        (
+            "padding1",
+            ctypes.c_int,
+        ),  # Added explicit padding to align next double to 8-byte boundary
         ("mDeltaTime", ctypes.c_double),
         ("mElapsedTime", ctypes.c_double),
         ("mLapNumber", ctypes.c_int),
+        ("padding2", ctypes.c_int),  # Added explicit padding
         ("mLapStartET", ctypes.c_double),
         ("mVehicleName", ctypes.c_char * 64),
         ("mTrackName", ctypes.c_char * 64),
         ("mPos", _Vec3),
-        ("mLocalVel", _Vec3),                     # m/s in vehicle-local axes
+        ("mLocalVel", _Vec3),
         ("mLocalAccel", _Vec3),
-        ("mOri", _Vec3 * 3),                      # 3×3 orientation matrix (row-major)
+        ("mOri", _Vec3 * 3),
         ("mLocalRot", _Vec3),
         ("mLocalRotAccel", _Vec3),
-        ("mGear", ctypes.c_int),                  # -1=reverse  0=neutral  1+=forward
+        ("mGear", ctypes.c_int),
+        ("padding3", ctypes.c_int),  # Added explicit padding
         ("mEngineRPM", ctypes.c_double),
         ("mEngineWaterTemp", ctypes.c_double),
         ("mEngineOilTemp", ctypes.c_double),
@@ -107,8 +116,8 @@ class _VehicleTelemetry(ctypes.Structure):
         ("mFront3rdDeflection", ctypes.c_double),
         ("mRear3rdDeflection", ctypes.c_double),
         ("mFrontWingHeight", ctypes.c_double),
-        ("mFrontRideHeight", ctypes.c_double),
-        ("mRearRideHeight", ctypes.c_double),
+        ("mFrontRideH", ctypes.c_double),  # Renamed to avoid confusion
+        ("mRearRideH", ctypes.c_double),  # Renamed to avoid confusion
         ("mDrag", ctypes.c_double),
         ("mFrontDownforce", ctypes.c_double),
         ("mRearDownforce", ctypes.c_double),
@@ -119,6 +128,7 @@ class _VehicleTelemetry(ctypes.Structure):
         ("mDetached", ctypes.c_uint8),
         ("mHeadlights", ctypes.c_uint8),
         ("mDentSeverity", ctypes.c_uint8 * 8),
+        ("padding4", ctypes.c_uint8 * 4),  # Added explicit padding to align next double
         ("mLastImpactET", ctypes.c_double),
         ("mLastImpactMagnitude", ctypes.c_double),
         ("mLastImpactPos", _Vec3),
@@ -131,7 +141,7 @@ class _VehicleTelemetry(ctypes.Structure):
 # Shared memory buffer header + vehicle array
 # ---------------------------------------------------------------------------
 
-_MAX_VEHICLES = 128
+_MAX_VEHICLES = 64
 
 
 class _TelemetryBuffer(ctypes.Structure):
@@ -143,6 +153,7 @@ class _TelemetryBuffer(ctypes.Structure):
     """
 
     _pack_ = 4
+    _layout_ = "ms"
     _fields_ = [
         ("mVersionUpdateBegin", ctypes.c_uint),
         ("mVersionUpdateEnd", ctypes.c_uint),

@@ -80,7 +80,13 @@ class SharedMemoryProvider:
     def open(self) -> None:
         path = _find_shm_path()
         self._fd = os.open(str(path), os.O_RDONLY)
-        self._mm = mmap.mmap(self._fd, _BUFFER_SIZE, access=mmap.ACCESS_READ)
+
+        # Use the actual file size instead of the structure size
+        # to avoid ValueError if the buffer is smaller than _BUFFER_SIZE
+        file_size = os.path.getsize(path)
+        map_size = min(file_size, _BUFFER_SIZE)
+
+        self._mm = mmap.mmap(self._fd, map_size, access=mmap.ACCESS_READ)
 
     def close(self) -> None:
         if self._mm is not None:
@@ -109,7 +115,13 @@ class SharedMemoryProvider:
 
         self._mm.seek(0)
         raw = self._mm.read(_BUFFER_SIZE)
-        buf = _TelemetryBuffer.from_buffer_copy(raw)
+
+        # Use from_buffer_copy to avoid alignment issues with mmap directly
+        try:
+            buf = _TelemetryBuffer.from_buffer_copy(raw)
+        except ValueError:
+            # If raw is too small, we can't read the buffer
+            return None
 
         # Skip frame if the plugin is mid-write (version counters differ)
         if buf.mVersionUpdateBegin != buf.mVersionUpdateEnd:

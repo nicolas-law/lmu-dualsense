@@ -70,6 +70,13 @@ class DualSenseController:
     def connected(self) -> bool:
         return self._ds is not None and bool(getattr(self._ds, "connected", False))
 
+    @property
+    def gyro_yaw(self) -> int:
+        """Raw signed-int16 yaw rate from the DualSense IMU (0 when disconnected)."""
+        if self._ds is None:
+            return 0
+        return int(self._ds.state.gyro.Yaw)
+
     # ------------------------------------------------------------------
     # Feedback
     # ------------------------------------------------------------------
