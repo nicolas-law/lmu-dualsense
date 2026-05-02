@@ -55,6 +55,7 @@ def _run_loop(
                 provider.open()
                 logger.info("rF2 shared memory opened")
             except TelemetryNotAvailable as exc:
+                provider = None
                 logger.warning("%s  Retrying in %.0f s…", exc, _RETRY_DELAY)
                 time.sleep(_RETRY_DELAY)
                 continue
