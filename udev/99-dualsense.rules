@@ -1,0 +1,9 @@
+# Allow DualSense (PS5) hidraw access without root.
+#
+# Install:
+#   sudo cp udev/99-dualsense.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# Then reconnect the controller (USB) or re-pair (Bluetooth).
+
+KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", MODE="0664", GROUP="input"
