@@ -1,9 +1,12 @@
 """
 ctypes mirrors of the rF2SharedMemoryMapPlugin binary layout.
 
-Source spec: rF2 InternalsPlugin SDK, MSVC default alignment (no packing pragma).
-ctypes natural alignment matches MSVC on x86-64, so no _pack_ override is needed.
-Comment annotations show the padding bytes ctypes inserts automatically.
+Source spec: rF2State.h from TheIronWolfModding/rF2SharedMemoryMapPlugin, which
+uses #pragma pack(push, 4).  All Structure subclasses here must carry _pack_ = 4
+or field offsets will not match the game's memory and reads will return garbage.
+
+Verified against CrewChief V4 (rF2Data.cs: [StructLayout(LayoutKind.Sequential, Pack=4)]),
+the reference implementation for LMU telemetry.
 """
 
 import ctypes
@@ -14,6 +17,7 @@ import ctypes
 
 
 class _Vec3(ctypes.Structure):
+    _pack_ = 4
     _fields_ = [
         ("x", ctypes.c_double),
         ("y", ctypes.c_double),
@@ -22,13 +26,14 @@ class _Vec3(ctypes.Structure):
 
 
 # ---------------------------------------------------------------------------
-# Per-wheel telemetry  (sizeof ≈ 376 bytes)
+# Per-wheel telemetry
 # ---------------------------------------------------------------------------
 
 
 class _Wheel(ctypes.Structure):
     """rF2VehicleWheelTelemetry.  Wheel order in parent array: FL=0 FR=1 RL=2 RR=3."""
 
+    _pack_ = 4
     _fields_ = [
         ("mSuspensionDeflection", ctypes.c_double),
         ("mRideHeight", ctypes.c_double),
@@ -53,7 +58,6 @@ class _Wheel(ctypes.Structure):
         ("mFlat", ctypes.c_uint8),
         ("mDetached", ctypes.c_uint8),
         ("mStaticUndeflectedRadius", ctypes.c_uint8),
-        # ← 4 bytes alignment padding inserted by ctypes (next field is double)
         ("mVerticalTireDeflection", ctypes.c_double),
         ("mWheelYLocation", ctypes.c_double),
         ("mToe", ctypes.c_double),
@@ -64,20 +68,19 @@ class _Wheel(ctypes.Structure):
 
 
 # ---------------------------------------------------------------------------
-# Per-vehicle telemetry  (sizeof ≈ 2176 bytes)
+# Per-vehicle telemetry
 # ---------------------------------------------------------------------------
 
 
 class _VehicleTelemetry(ctypes.Structure):
     """rF2VehicleTelemetry.  Index 0 in the buffer is always the player's car."""
 
+    _pack_ = 4
     _fields_ = [
         ("mID", ctypes.c_int),
-        # ← 4 bytes padding (next field is double)
         ("mDeltaTime", ctypes.c_double),
         ("mElapsedTime", ctypes.c_double),
         ("mLapNumber", ctypes.c_int),
-        # ← 4 bytes padding
         ("mLapStartET", ctypes.c_double),
         ("mVehicleName", ctypes.c_char * 64),
         ("mTrackName", ctypes.c_char * 64),
@@ -88,7 +91,6 @@ class _VehicleTelemetry(ctypes.Structure):
         ("mLocalRot", _Vec3),
         ("mLocalRotAccel", _Vec3),
         ("mGear", ctypes.c_int),                  # -1=reverse  0=neutral  1+=forward
-        # ← 4 bytes padding
         ("mEngineRPM", ctypes.c_double),
         ("mEngineWaterTemp", ctypes.c_double),
         ("mEngineOilTemp", ctypes.c_double),
@@ -117,7 +119,6 @@ class _VehicleTelemetry(ctypes.Structure):
         ("mDetached", ctypes.c_uint8),
         ("mHeadlights", ctypes.c_uint8),
         ("mDentSeverity", ctypes.c_uint8 * 8),
-        # ← 4 bytes padding (offset 564 → 568 for double alignment)
         ("mLastImpactET", ctypes.c_double),
         ("mLastImpactMagnitude", ctypes.c_double),
         ("mLastImpactPos", _Vec3),
@@ -135,17 +136,16 @@ _MAX_VEHICLES = 128
 
 class _TelemetryBuffer(ctypes.Structure):
     """
-    Full layout of the $rF2SMMP_Telemetry$ shared memory region.
+    Full layout of the $rFactor2SMMP_Telemetry$ shared memory region.
 
-    mCurrentRead is incremented on each write; odd value means a write is in
-    progress.  For haptic feedback we tolerate the rare torn read and skip the
-    consistency check.
+    The plugin increments mVersionUpdateBegin before writing and
+    mVersionUpdateEnd after.  Equal values mean the buffer is consistent.
     """
 
+    _pack_ = 4
     _fields_ = [
-        ("mCurrentRead", ctypes.c_uint),
-        ("mBytesUpdatedHint", ctypes.c_int),
+        ("mVersionUpdateBegin", ctypes.c_uint),
+        ("mVersionUpdateEnd", ctypes.c_uint),
         ("mNumVehicles", ctypes.c_int),
-        # ← 4 bytes padding (_VehicleTelemetry array is double-aligned)
         ("mVehicles", _VehicleTelemetry * _MAX_VEHICLES),
     ]

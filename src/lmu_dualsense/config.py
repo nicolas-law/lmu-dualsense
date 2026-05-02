@@ -4,10 +4,11 @@ from dataclasses import dataclass, field
 @dataclass
 class TelemetryConfig:
     # Tried in order; first existing path wins.
+    # Buffer name is "rFactor2SMMP_Telemetry" — verified against CrewChief V4.
     shm_names: list[str] = field(default_factory=lambda: [
-        "$rF2SMMP_Telemetry$",
-        "/$rF2SMMP_Telemetry$",
-        "wine_$rF2SMMP_Telemetry$",
+        "$rFactor2SMMP_Telemetry$",
+        "/$rFactor2SMMP_Telemetry$",
+        "wine_$rFactor2SMMP_Telemetry$",
     ])
     poll_rate_hz: int = 100
 

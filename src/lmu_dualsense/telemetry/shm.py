@@ -1,12 +1,12 @@
 """
-Reads rF2 telemetry from the shared memory created by rF2SharedMemoryMapPlugin.dll.
+Reads rF2 telemetry from the shared memory created by LMU_SharedMemoryMapPlugin64.dll.
 
 On Linux with Proton, Wine exposes Windows named shared memory in /dev/shm/.
 The exact filename depends on the Wine version; several candidates are tried,
 and /dev/shm/ is also scanned for any entry whose name contains the plugin id.
 
-Plugin install: copy rF2SharedMemoryMapPlugin.dll into
-<Steam library>/steamapps/common/Le Mans Ultimate/Bin64/Plugins/
+Plugin install (see README): copy LMU_SharedMemoryMapPlugin64.dll into
+<Steam library>/steamapps/common/Le Mans Ultimate/Plugins/
 """
 
 import ctypes
@@ -18,7 +18,9 @@ from pathlib import Path
 from lmu_dualsense.telemetry.base import TelemetryState
 from lmu_dualsense.telemetry.structs import _TelemetryBuffer, _VehicleTelemetry
 
-_PLUGIN_ID = "rF2SMMP_Telemetry"
+# Buffer name used by LMU_SharedMemoryMapPlugin / rF2SharedMemoryMapPlugin.
+# "rFactor2" (not "rF2") — verified against CrewChief V4 source.
+_PLUGIN_ID = "rFactor2SMMP_Telemetry"
 
 _SHM_CANDIDATES = [
     f"/dev/shm/${_PLUGIN_ID}$",
@@ -46,9 +48,9 @@ def _find_shm_path() -> Path:
             return entry
 
     raise TelemetryNotAvailable(
-        f"rF2 shared memory not found in /dev/shm/. "
-        f"Install rF2SharedMemoryMapPlugin.dll into the game's Bin64/Plugins/ "
-        f"folder and make sure Le Mans Ultimate is running."
+        "rF2 shared memory not found in /dev/shm/. "
+        "Install LMU_SharedMemoryMapPlugin64.dll into the game's Plugins/ folder "
+        "and make sure Le Mans Ultimate is running in an active session."
     )
 
 
@@ -108,6 +110,10 @@ class SharedMemoryProvider:
         self._mm.seek(0)
         raw = self._mm.read(_BUFFER_SIZE)
         buf = _TelemetryBuffer.from_buffer_copy(raw)
+
+        # Skip frame if the plugin is mid-write (version counters differ)
+        if buf.mVersionUpdateBegin != buf.mVersionUpdateEnd:
+            return None
 
         if buf.mNumVehicles == 0:
             return None
