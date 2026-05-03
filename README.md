@@ -99,19 +99,9 @@ pip install -e ".[dev]"
 
 ---
 
-### Step 4 — Steam launch options (optional but recommended)
-
-Run lmu-dualsense automatically with the game. In Steam → Le Mans Ultimate → Properties → **Launch Options**:
-
-```
-WINEDLLOVERRIDES="LMU_SharedMemoryMapPlugin64=n,b;rFactor2SharedMemoryMapPlugin64_Wine=n,b" bash -c 'lmu-dualsense & PID=$!; %command%; kill $PID'
-```
-
----
-
 ## Running
 
-Start your game and load into a session, then:
+Start Le Mans Ultimate and load into a session first, then run:
 
 ```bash
 lmu-dualsense
