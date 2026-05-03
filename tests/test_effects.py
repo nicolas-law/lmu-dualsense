@@ -3,11 +3,12 @@
 import pytest
 from pydualsense import TriggerModes
 
-from lmu_dualsense.config import TriggerConfig
-from lmu_dualsense.controller.effects import TriggerEffect, compute_effects
+from lmu_dualsense.config import RumbleConfig, TriggerConfig
+from lmu_dualsense.controller.effects import RumbleEffect, TriggerEffect, compute_effects, compute_rumble
 from lmu_dualsense.telemetry.base import TelemetryState
 
 _CFG = TriggerConfig()
+_RCFG = RumbleConfig()
 
 
 def _state(
@@ -123,6 +124,91 @@ class TestThrottleEffect:
 
 
 # ---------------------------------------------------------------------------
+# Grip rumble
+# ---------------------------------------------------------------------------
+
+
+class TestRumbleEffect:
+    def test_no_slip_no_rumble(self) -> None:
+        r = compute_rumble(_state(), _RCFG)
+        # Engine drone only (engine_rpm=6000, max=12000 → 0.5 * 20 = 10)
+        assert r.left == r.right == 10
+
+    def test_disabled_returns_zero(self) -> None:
+        cfg = RumbleConfig(enabled=False)
+        r = compute_rumble(_state(), cfg)
+        assert r == RumbleEffect(left=0, right=0)
+
+    def test_below_threshold_no_grip_rumble(self) -> None:
+        slip = _RCFG.grip_threshold - 0.01
+        r = compute_rumble(_state(wheel_grip=(slip, slip, slip, slip)), _RCFG)
+        # Only engine drone
+        assert r.left == r.right
+
+    def test_full_slide_left_side(self) -> None:
+        r = compute_rumble(_state(wheel_grip=(1.0, 0.0, 1.0, 0.0)), _RCFG)
+        assert r.left > r.right
+
+    def test_full_slide_right_side(self) -> None:
+        r = compute_rumble(_state(wheel_grip=(0.0, 1.0, 0.0, 1.0)), _RCFG)
+        assert r.right > r.left
+
+    def test_full_slide_both_sides(self) -> None:
+        r = compute_rumble(_state(wheel_grip=(1.0, 1.0, 1.0, 1.0)), _RCFG)
+        assert r.left == r.right
+        assert r.left >= _RCFG.grip_max_intensity
+
+    def test_rear_only_slip_fires(self) -> None:
+        slip = _RCFG.grip_threshold + 0.1
+        r = compute_rumble(_state(wheel_grip=(0.0, 0.0, slip, slip)), _RCFG)
+        assert r.left > 0 and r.right > 0
+
+    def test_front_only_slip_fires(self) -> None:
+        slip = _RCFG.grip_threshold + 0.1
+        r = compute_rumble(_state(wheel_grip=(slip, slip, 0.0, 0.0)), _RCFG)
+        assert r.left > 0 and r.right > 0
+
+    def test_clamped_to_255(self) -> None:
+        cfg = RumbleConfig(grip_max_intensity=255, engine_max_intensity=255)
+        r = compute_rumble(_state(wheel_grip=(1.0, 1.0, 1.0, 1.0)), cfg)
+        assert r.left <= 255 and r.right <= 255
+
+    def test_intensity_scales_with_slip(self) -> None:
+        slip_lo = _RCFG.grip_threshold + 0.05
+        slip_hi = _RCFG.grip_threshold + 0.40
+        r_lo = compute_rumble(_state(wheel_grip=(slip_lo, slip_lo, 0.0, 0.0)), _RCFG)
+        r_hi = compute_rumble(_state(wheel_grip=(slip_hi, slip_hi, 0.0, 0.0)), _RCFG)
+        assert r_hi.left > r_lo.left
+
+
+# ---------------------------------------------------------------------------
+# ABS pulse scaling
+# ---------------------------------------------------------------------------
+
+
+class TestAbsPulseScaling:
+    def test_abs_pulse_at_threshold_is_lighter_than_full_slide(self) -> None:
+        threshold = _CFG.abs_grip_threshold
+        mild_grip = threshold + 0.01
+        full_grip = 0.99
+        mild, _ = compute_effects(_state(brake=0.8, wheel_grip=(mild_grip, mild_grip, 0.0, 0.0)), _CFG)
+        hard, _ = compute_effects(_state(brake=0.8, wheel_grip=(full_grip, full_grip, 0.0, 0.0)), _CFG)
+        assert mild.mode == TriggerModes.Pulse
+        assert hard.mode == TriggerModes.Pulse
+        assert hard.forces[1] > mild.forces[1]
+
+    def test_wheelspin_pulse_scales_with_rear_grip(self) -> None:
+        threshold = _CFG.wheelspin_grip_threshold
+        mild_grip = threshold + 0.01
+        full_grip = 0.99
+        _, mild = compute_effects(_state(throttle=0.9, wheel_grip=(0.0, 0.0, mild_grip, mild_grip)), _CFG)
+        _, hard = compute_effects(_state(throttle=0.9, wheel_grip=(0.0, 0.0, full_grip, full_grip)), _CFG)
+        assert mild.mode == TriggerModes.Pulse
+        assert hard.mode == TriggerModes.Pulse
+        assert hard.forces[2] > mild.forces[2]
+
+
+# ---------------------------------------------------------------------------
 # Effect immutability
 # ---------------------------------------------------------------------------
 
@@ -131,3 +217,9 @@ def test_trigger_effect_is_immutable() -> None:
     effect = TriggerEffect(mode=TriggerModes.Rigid, forces={0: 0, 1: 255, 2: 100})
     with pytest.raises((AttributeError, TypeError)):
         effect.mode = TriggerModes.Off  # type: ignore[misc]
+
+
+def test_rumble_effect_is_immutable() -> None:
+    effect = RumbleEffect(left=100, right=200)
+    with pytest.raises((AttributeError, TypeError)):
+        effect.left = 0  # type: ignore[misc]

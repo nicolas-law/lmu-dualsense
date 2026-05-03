@@ -12,8 +12,8 @@ import mmap
 import os
 from pathlib import Path
 
-from lmu_dualsense.telemetry.base import TelemetryState
 from lmu_dualsense.telemetry.acc_structs import _AccPhysics
+from lmu_dualsense.telemetry.base import TelemetryState
 
 _SHM_NAME = "acpmf_physics"
 

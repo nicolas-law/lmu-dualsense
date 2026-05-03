@@ -4,12 +4,17 @@ import logging
 import signal
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol
 
 from lmu_dualsense.config import Config, TriggerConfig
 from lmu_dualsense.controller.dualsense import DualSenseController
-from lmu_dualsense.controller.effects import TriggerEffect, compute_effects
+from lmu_dualsense.controller.effects import (
+    RumbleEffect,
+    TriggerEffect,
+    compute_effects,
+    compute_rumble,
+)
 from lmu_dualsense.steering import VirtualSteering
 from lmu_dualsense.telemetry.acc_shm import AccSharedMemoryProvider, acc_shm_path
 from lmu_dualsense.telemetry.base import TelemetryState
@@ -28,6 +33,7 @@ class AppState:
     telemetry: TelemetryState | None = None
     l2_effect: TriggerEffect | None = None
     r2_effect: TriggerEffect | None = None
+    rumble_effect: RumbleEffect | None = None
     game: str = "Searching…"
     ctrl_ok: bool = False
 
@@ -137,10 +143,14 @@ def _run_loop(
             left, right = compute_effects(state, cfg.triggers)
             ctrl.apply(left, right)
 
+            rumble = compute_rumble(state, cfg.rumble)
+            ctrl.set_rumble(rumble)
+
             if app_state is not None:
                 app_state.telemetry = state
                 app_state.l2_effect = left
                 app_state.r2_effect = right
+                app_state.rumble_effect = rumble
 
             if time.time() % 1.0 < interval:
                 logger.info(

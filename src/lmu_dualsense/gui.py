@@ -5,14 +5,14 @@ import threading
 
 import dearpygui.dearpygui as dpg
 
-from lmu_dualsense.config import Config, SteeringConfig
+from lmu_dualsense.config import Config, RumbleConfig, SteeringConfig
 from lmu_dualsense.controller.dualsense import DualSenseController
 from lmu_dualsense.feedback import AppState, _run_loop
 
 logger = logging.getLogger(__name__)
 
 _W = 420
-_H = 760
+_H = 920
 
 
 def _slider_int(label: str, tag: str, default: int, lo: int, hi: int, cb) -> None:
@@ -36,7 +36,7 @@ def _slider_float(label: str, tag: str, default: float, lo: float, hi: float, cb
     )
 
 
-def _build_ui(app_state: AppState, scfg: "SteeringConfig") -> None:
+def _build_ui(app_state: AppState, rcfg: "RumbleConfig", scfg: "SteeringConfig") -> None:
     cfg = app_state.config
 
     with dpg.window(tag="main", no_close=True):
@@ -79,6 +79,12 @@ def _build_ui(app_state: AppState, scfg: "SteeringConfig") -> None:
             dpg.add_text("    R2: ")
             dpg.add_text("-", tag="t_r2")
 
+        with dpg.group(horizontal=True):
+            dpg.add_text("Rumble L: ")
+            dpg.add_text("-", tag="t_rum_l")
+            dpg.add_text("    R: ")
+            dpg.add_text("-", tag="t_rum_r")
+
         dpg.add_spacer(height=2)
         dpg.add_separator()
         dpg.add_spacer(height=2)
@@ -94,7 +100,7 @@ def _build_ui(app_state: AppState, scfg: "SteeringConfig") -> None:
         )
         dpg.add_spacer(height=4)
         _slider_int(
-            "Easy Zone Resistance  (0 = natural spring, raise only if you want some feel below bite point)",
+            "Easy Zone Resistance  (0 = natural spring, raise for feel below bite point)",
             "s_brake_easy", cfg.brake_easy_resistance, 0, 255,
             lambda s, v: setattr(cfg, "brake_easy_resistance", v),
         )
@@ -135,6 +141,40 @@ def _build_ui(app_state: AppState, scfg: "SteeringConfig") -> None:
             "Wheelspin Threshold  (grip loss that triggers wheelspin pulse)",
             "s_spin_thresh", cfg.wheelspin_grip_threshold, 0.0, 1.0,
             lambda s, v: setattr(cfg, "wheelspin_grip_threshold", v),
+        )
+
+        dpg.add_spacer(height=2)
+        dpg.add_separator()
+        dpg.add_spacer(height=2)
+
+        # ── Grip rumble motors ───────────────────────────────────────────────
+        dpg.add_text("GRIP RUMBLE MOTORS", color=(150, 150, 150))
+        dpg.add_spacer(height=4)
+
+        dpg.add_checkbox(
+            label="Enable grip rumble",
+            tag="cb_rumble_enabled",
+            default_value=rcfg.enabled,
+            callback=lambda s, v: setattr(rcfg, "enabled", v),
+        )
+        dpg.add_spacer(height=6)
+
+        _slider_int(
+            "Max Grip Intensity  (0-255, rumble at full slide)",
+            "s_rum_grip_max", rcfg.grip_max_intensity, 0, 255,
+            lambda s, v: setattr(rcfg, "grip_max_intensity", v),
+        )
+        dpg.add_spacer(height=4)
+        _slider_float(
+            "Grip Threshold  (slip below this → no rumble)",
+            "s_rum_grip_thresh", rcfg.grip_threshold, 0.0, 0.5,
+            lambda s, v: setattr(rcfg, "grip_threshold", v),
+        )
+        dpg.add_spacer(height=4)
+        _slider_int(
+            "Engine Drone Max  (0-255, background RPM feel — keep low)",
+            "s_rum_engine_max", rcfg.engine_max_intensity, 0, 80,
+            lambda s, v: setattr(rcfg, "engine_max_intensity", v),
         )
 
         dpg.add_spacer(height=2)
@@ -225,6 +265,10 @@ def _refresh(app_state: AppState) -> None:
     dpg.set_value("t_l2", f"{l2.mode.name}  force={l2.forces.get(1, 0)}" if l2 else "-")
     dpg.set_value("t_r2", f"{r2.mode.name}  force={r2.forces.get(1, 0)}" if r2 else "-")
 
+    rum = app_state.rumble_effect
+    dpg.set_value("t_rum_l", str(rum.left) if rum else "-")
+    dpg.set_value("t_rum_r", str(rum.right) if rum else "-")
+
 
 def main() -> None:
     logging.basicConfig(
@@ -249,7 +293,7 @@ def main() -> None:
     threading.Thread(target=_worker, daemon=True).start()
 
     dpg.create_context()
-    _build_ui(app_state, cfg.steering)
+    _build_ui(app_state, cfg.rumble, cfg.steering)
     dpg.create_viewport(
         title="DualSense Feedback",
         width=_W, height=_H,

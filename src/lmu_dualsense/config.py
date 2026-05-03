@@ -48,7 +48,19 @@ class TriggerConfig:
 
 
 @dataclass
+class RumbleConfig:
+    enabled: bool = True
+    # Per-side grip rumble: FL+RL → left motor, FR+RR → right motor.
+    # Fires during front lock-up (braking) and rear wheelspin (acceleration).
+    grip_max_intensity: int = 180        # 0-255, intensity at full slide
+    grip_threshold: float = 0.08        # grip-loss below this → no rumble
+    # Very subtle RPM drone so the car feels alive at idle/high revs.
+    engine_max_intensity: int = 20       # 0-255, keep low so grip signals dominate
+
+
+@dataclass
 class Config:
     telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
     triggers: TriggerConfig = field(default_factory=TriggerConfig)
+    rumble: RumbleConfig = field(default_factory=RumbleConfig)
     steering: SteeringConfig = field(default_factory=SteeringConfig)

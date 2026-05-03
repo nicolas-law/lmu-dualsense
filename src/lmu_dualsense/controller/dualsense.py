@@ -10,11 +10,12 @@ import logging
 
 from pydualsense import TriggerModes, pydualsense
 
-from lmu_dualsense.controller.effects import TriggerEffect
+from lmu_dualsense.controller.effects import RumbleEffect, TriggerEffect
 
 logger = logging.getLogger(__name__)
 
 _TRIGGER_OFF = TriggerEffect(mode=TriggerModes.Off, forces={})
+_RUMBLE_OFF = RumbleEffect(left=0, right=0)
 
 
 class DualSenseController:
@@ -31,6 +32,7 @@ class DualSenseController:
         self._ds: pydualsense | None = None
         self._last_left: TriggerEffect | None = None
         self._last_right: TriggerEffect | None = None
+        self._last_rumble: RumbleEffect | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -47,12 +49,15 @@ class DualSenseController:
         try:
             _apply_effect(self._ds.triggerL, _TRIGGER_OFF)
             _apply_effect(self._ds.triggerR, _TRIGGER_OFF)
+            self._ds.setLeftMotor(0)
+            self._ds.setRightMotor(0)
             self._ds.close()
         except Exception:  # noqa: BLE001
             pass
         self._ds = None
         self._last_left = None
         self._last_right = None
+        self._last_rumble = None
         logger.info("DualSense disconnected")
 
     def __enter__(self) -> "DualSenseController":
@@ -93,6 +98,14 @@ class DualSenseController:
         if right != self._last_right:
             _apply_effect(self._ds.triggerR, right)
             self._last_right = right
+
+    def set_rumble(self, effect: RumbleEffect) -> None:
+        """Write grip motor intensities, skipping unchanged values."""
+        if self._ds is None or effect == self._last_rumble:
+            return
+        self._ds.setLeftMotor(effect.left)
+        self._ds.setRightMotor(effect.right)
+        self._last_rumble = effect
 
 
 def _apply_effect(trigger: object, effect: TriggerEffect) -> None:
