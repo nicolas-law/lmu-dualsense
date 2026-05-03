@@ -134,15 +134,17 @@ class _VehicleTelemetry(ctypes.Structure):
 # Shared memory buffer header + vehicle array
 # ---------------------------------------------------------------------------
 
-_MAX_VEHICLES = 64
+_MAX_VEHICLES = 128  # rF2MappedBufferHeader::MAX_MAPPED_VEHICLES
 
 
 class _TelemetryBuffer(ctypes.Structure):
     """
     Full layout of the $rFactor2SMMP_Telemetry$ shared memory region.
 
+    Layout: rF2MappedBufferVersionBlock + rF2Telemetry (rF2MappedBufferHeaderWithSize).
     The plugin increments mVersionUpdateBegin before writing and
     mVersionUpdateEnd after.  Equal values mean the buffer is consistent.
+    Verified: 8 (version) + 4 (hint) + 4 (numVehicles) + 128 × 1888 = 241,680 bytes.
     """
 
     _pack_ = 4
@@ -150,6 +152,7 @@ class _TelemetryBuffer(ctypes.Structure):
     _fields_ = [
         ("mVersionUpdateBegin", ctypes.c_uint),
         ("mVersionUpdateEnd", ctypes.c_uint),
+        ("mBytesUpdatedHint", ctypes.c_int),   # rF2MappedBufferHeaderWithSize
         ("mNumVehicles", ctypes.c_int),
         ("mVehicles", _VehicleTelemetry * _MAX_VEHICLES),
     ]
