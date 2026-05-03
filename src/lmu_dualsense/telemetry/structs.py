@@ -42,15 +42,15 @@ class _Wheel(ctypes.Structure):
         ("mSuspForce", ctypes.c_double),
         ("mBrakeTemp", ctypes.c_double),
         ("mBrakePressure", ctypes.c_double),
-        ("mRotation", ctypes.c_double),  # rad/s, positive = forward
-        ("mLateralPatchVel", _Vec3),
-        ("mLongitudinalPatchVel", _Vec3),
-        ("mLateralGroundVel", _Vec3),
-        ("mLongitudinalGroundVel", _Vec3),
+        ("mRotation", ctypes.c_double),           # rad/s, positive = forward
+        ("mLateralPatchVel", ctypes.c_double),     # lateral velocity at contact patch
+        ("mLongitudinalPatchVel", ctypes.c_double),# longitudinal velocity at contact patch
+        ("mLateralGroundVel", ctypes.c_double),    # lateral velocity at contact patch
+        ("mLongitudinalGroundVel", ctypes.c_double),# longitudinal velocity at contact patch
         ("mCamber", ctypes.c_double),
-        ("mLateralForce", _Vec3),
-        ("mLongitudinalForce", _Vec3),
-        ("mTireLoad", _Vec3),
+        ("mLateralForce", ctypes.c_double),        # Newtons
+        ("mLongitudinalForce", ctypes.c_double),   # Newtons
+        ("mTireLoad", ctypes.c_double),            # Newtons
         ("mGripFract", ctypes.c_double),  # 0 = full grip, ~1 = full slide
         ("mPressure", ctypes.c_double),
         ("mTemperature", ctypes.c_double * 3),
@@ -125,7 +125,7 @@ class _VehicleTelemetry(ctypes.Structure):
         ("mLastImpactET", ctypes.c_double),
         ("mLastImpactMagnitude", ctypes.c_double),
         ("mLastImpactPos", _Vec3),
-        ("mExpansion", ctypes.c_uint8 * 64),
+        ("mExpansion", ctypes.c_uint8 * 256),
         ("mWheels", _Wheel * 4),
     ]
 
