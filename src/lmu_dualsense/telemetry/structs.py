@@ -81,14 +81,9 @@ class _VehicleTelemetry(ctypes.Structure):
     _layout_ = "ms"
     _fields_ = [
         ("mID", ctypes.c_int),
-        (
-            "padding1",
-            ctypes.c_int,
-        ),  # Added explicit padding to align next double to 8-byte boundary
         ("mDeltaTime", ctypes.c_double),
         ("mElapsedTime", ctypes.c_double),
         ("mLapNumber", ctypes.c_int),
-        ("padding2", ctypes.c_int),  # Added explicit padding
         ("mLapStartET", ctypes.c_double),
         ("mVehicleName", ctypes.c_char * 64),
         ("mTrackName", ctypes.c_char * 64),
@@ -99,7 +94,6 @@ class _VehicleTelemetry(ctypes.Structure):
         ("mLocalRot", _Vec3),
         ("mLocalRotAccel", _Vec3),
         ("mGear", ctypes.c_int),
-        ("padding3", ctypes.c_int),  # Added explicit padding
         ("mEngineRPM", ctypes.c_double),
         ("mEngineWaterTemp", ctypes.c_double),
         ("mEngineOilTemp", ctypes.c_double),
@@ -128,7 +122,6 @@ class _VehicleTelemetry(ctypes.Structure):
         ("mDetached", ctypes.c_uint8),
         ("mHeadlights", ctypes.c_uint8),
         ("mDentSeverity", ctypes.c_uint8 * 8),
-        ("padding4", ctypes.c_uint8 * 4),  # Added explicit padding to align next double
         ("mLastImpactET", ctypes.c_double),
         ("mLastImpactMagnitude", ctypes.c_double),
         ("mLastImpactPos", _Vec3),
