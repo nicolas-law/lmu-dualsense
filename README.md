@@ -1,5 +1,7 @@
 # lmu-dualsense
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Real-time adaptive trigger and haptic rumble feedback for **Le Mans Ultimate** (and Assetto Corsa Competizione) on Linux using a PS5 DualSense controller.
 
 Reads live telemetry from the game via shared memory and drives the DualSense at 100 Hz:
