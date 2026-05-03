@@ -1,41 +1,49 @@
-# lmu-dualsense
+# sim-dualsense
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Real-time adaptive trigger and haptic rumble feedback for **Le Mans Ultimate** (and Assetto Corsa Competizione) on Linux using a PS5 DualSense controller.
+Real-time adaptive trigger and haptic rumble feedback for sim racing on Linux using a PS5 DualSense controller.
 
 Reads live telemetry from the game via shared memory and drives the DualSense at 100 Hz:
 
 | Output | Behaviour |
 |--------|-----------|
-| **L2 – Brake trigger** | Progressive resistance with configurable bite point; pulses during front wheel lock-up or ABS activation — pulse intensity scales with slip severity |
-| **R2 – Throttle trigger** | Light resistance at idle scaling to full throttle; pulses during rear wheelspin — pulse intensity scales with slip severity |
-| **Left grip motor** | Rumbles proportional to left-side wheel slip (FL + RL) — fires during lock-up, wheelspin, and slides; adds subtle engine RPM drone |
-| **Right grip motor** | Same as left, driven by right-side wheels (FR + RR) — gives directional lock-up and wheelspin feel |
+| **L2 – Brake trigger** | Progressive resistance with configurable bite point; pulses during front wheel lock-up or ABS activation — intensity scales with slip severity |
+| **R2 – Throttle trigger** | Light resistance at idle scaling to full throttle; pulses during rear wheelspin — intensity scales with slip severity |
+| **Left grip motor** | Rumbles proportional to left-side wheel slip (FL + RL) — fires during lock-up, wheelspin, and slides |
+| **Right grip motor** | Same, driven by right-side wheels (FR + RR) — gives directional lock-up and wheelspin feel |
 
-ABS detection works for all car classes: cars **with ABS** (LMGT3) fire the pulse when ABS intervenes; cars **without ABS** (LMP2, LMP3, Hypercar) fire the pulse on wheel lock-up. Full-lock produces a more violent pulse than ABS-modulated slip because forces scale with actual grip loss.
-
-Both games are auto-detected at startup. Assetto Corsa Competizione is fully supported alongside LMU.
+ABS detection works for all car classes: cars **with ABS** (LMGT3) pulse during ABS intervention; cars **without ABS** (LMP2, LMP3, Hypercar) pulse on wheel lock-up. Full lock produces a more violent pulse than ABS-modulated slip because intensity scales with actual grip loss.
 
 ---
 
-## Requirements
+## Game support
 
-| | |
-|---|---|
-| **OS** | Linux (tested on Bazzite / Fedora Atomic) |
-| **Game** | Le Mans Ultimate or Assetto Corsa Competizione via Steam + Proton |
-| **Controller** | PS5 DualSense (USB recommended; Bluetooth works) |
-| **Python** | 3.11 or newer |
-| **LMU only** | [LMU_SharedMemoryMapPlugin](https://github.com/tembob64/LMU_SharedMemoryMapPlugin) DLL (see Step 1) |
+| Game | Status |
+|------|--------|
+| **Le Mans Ultimate** | Tested and working — requires the shared memory plugin (see Step 1) |
+| **Assetto Corsa Competizione** | Should work — ACC exposes shared memory natively, but untested |
 
 ---
 
 ## Installation
 
-### Step 1 — Install the game telemetry plugin (LMU only)
+### Download the binary (recommended)
 
-Le Mans Ultimate does not expose telemetry by default. A plugin DLL must be installed to create the shared memory buffer this tool reads. Skip this step for ACC — it exposes shared memory natively.
+Go to the [Releases](https://github.com/nicolas-law/sim-dualsense/releases) page, download the latest `sim-dualsense` binary, then:
+
+```bash
+chmod +x sim-dualsense
+./sim-dualsense
+```
+
+> **Note:** You still need to complete Steps 1 and 2 below before running.
+
+---
+
+### Step 1 — Install the LMU telemetry plugin (Le Mans Ultimate only)
+
+Le Mans Ultimate does not expose telemetry by default. Skip this step entirely for ACC.
 
 **Download** the latest `LMU_SharedMemoryMapPlugin64.zip` from:
 
@@ -58,7 +66,7 @@ Then open (or create) `<LeMansUltimate>/UserData/player/CustomPluginVariables.JS
 }
 ```
 
-**Verify:** Launch Le Mans Ultimate and load into a session, then check:
+**Verify:** Launch Le Mans Ultimate, load into a session, then check:
 
 ```bash
 ls /dev/shm/ | grep -i rFactor2
@@ -81,30 +89,12 @@ Reconnect or re-pair your controller afterwards.
 
 ---
 
-### Step 3 — Install lmu-dualsense
-
-```bash
-git clone https://github.com/nicolas-law/lmu-dualsense.git
-cd lmu-dualsense
-pip install -e .
-```
-
-For development (tests, linter, type checker):
-
-```bash
-pip install -e ".[dev]"
-```
-
-> **Tip:** Use a virtual environment (`python -m venv .venv && source .venv/bin/activate`) to keep dependencies isolated.
-
----
-
 ## Running
 
-Start Le Mans Ultimate and load into a session first, then run:
+Start your game and load into a session first, then run:
 
 ```bash
-lmu-dualsense
+./sim-dualsense
 ```
 
 This opens the live overlay with telemetry display and real-time tuning sliders. The tool retries every 5 seconds until shared memory is found. Press **Ctrl-C** or close the window to stop cleanly — motors and triggers are reset on exit.
@@ -113,7 +103,7 @@ This opens the live overlay with telemetry display and real-time tuning sliders.
 
 ## Configuration
 
-All defaults are tuned for a good out-of-the-box feel. Everything can be adjusted live via the GUI or by editing `src/lmu_dualsense/config.py`.
+All defaults are tuned for a good out-of-the-box feel. Everything can be adjusted live via the GUI sliders.
 
 ### Trigger config (L2 / R2)
 
@@ -126,8 +116,6 @@ All defaults are tuned for a good out-of-the-box feel. Everything can be adjuste
 | `throttle_base_resistance` | `5` | Trigger weight at idle |
 | `throttle_max_resistance` | `70` | Trigger weight at full throttle |
 | `wheelspin_grip_threshold` | `0.12` | Rear wheel slip above this during acceleration triggers the wheelspin pulse |
-
-`wheel_grip` values are the raw `mGripFract` field from the game: `0.0` = full grip, `~1.0` = full slide.
 
 ### Rumble config (grip motors)
 
@@ -145,28 +133,31 @@ All defaults are tuned for a good out-of-the-box feel. Everything can be adjuste
 ```
 Le Mans Ultimate (Proton / Wine)
   └─ LMU_SharedMemoryMapPlugin64.dll
-       └─ /dev/shm/$rFactor2SMMP_Telemetry$   ← Wine exposes named shm here
+       └─ /dev/shm/$rFactor2SMMP_Telemetry$
 
-lmu-dualsense (100 Hz loop)
+sim-dualsense (100 Hz loop)
   ├─ SharedMemoryProvider     maps the file, deserialises rF2VehicleTelemetry via ctypes
-  ├─ compute_effects()        pure function: TelemetryState → (L2 TriggerEffect, R2 TriggerEffect)
-  ├─ compute_rumble()         pure function: TelemetryState → RumbleEffect (left, right motors)
+  ├─ compute_effects()        TelemetryState → (L2 TriggerEffect, R2 TriggerEffect)
+  ├─ compute_rumble()         TelemetryState → RumbleEffect (left motor, right motor)
   └─ DualSenseController      writes effects via pydualsense; skips redundant HID writes
 ```
 
-The binary struct layout is mirrored in `telemetry/structs.py` using `ctypes.Structure` with `_pack_ = 4`, matching the plugin's `#pragma pack(push, 4)` — verified against CrewChief V4's reference implementation.
-
 ---
 
-## Development
+## Install from source (developers)
+
+```bash
+git clone https://github.com/nicolas-law/sim-dualsense.git
+cd sim-dualsense
+pip install -e ".[dev]"
+sim-dualsense
+```
 
 ```bash
 pytest           # 30 unit tests — no hardware or game required
 ruff check src   # linter
 mypy src         # type checker
 ```
-
-The effect calculation layer (`controller/effects.py`) is entirely pure and tested independently of the game and controller hardware.
 
 ---
 
@@ -175,21 +166,20 @@ The effect calculation layer (`controller/effects.py`) is entirely pure and test
 **No shared memory found**
 - Confirm the DLL is in `Plugins/`, `CustomPluginVariables.JSON` has `"Enabled": 1`, and the game is in an active session (not the main menu).
 - Check: `ls /dev/shm/ | grep -i rFactor2`
-- Wine 6+ is required for `/dev/shm/` exposure.
 
 **Permission denied on hidraw**
 - Re-run the udev steps from Step 2 and reconnect the controller.
 - Verify with: `ls -l /dev/hidraw*`
 
 **Triggers feel too strong / too weak**
-- Open the GUI (`lmu-dualsense-gui`) and adjust sliders live while driving.
-- For brakes: lower `brake_threshold` to move the bite point earlier; raise `brake_max_resistance` for a heavier pedal feel.
+- Open the GUI and adjust sliders live while driving.
+- For brakes: lower `brake_threshold` to move the bite point earlier.
 - For throttle: raise `wheelspin_grip_threshold` if wheelspin feedback triggers too early on corner exit.
 
 **Grip motors not rumbling**
 - Check the "GRIP RUMBLE MOTORS" section in the GUI — confirm `enabled` is checked.
-- Lower `grip_threshold` if rumble feels too subtle; raise `grip_max_intensity` for stronger feedback.
+- Lower `grip_threshold` if rumble feels too subtle.
 
-**Game not detected**
-- For LMU: ensure the shared memory plugin is installed and the game is in an active session.
-- For ACC: the `acpmf_physics` shared memory file should appear in `/dev/shm/` automatically when ACC is in a session.
+**ACC not working**
+- Check that `/dev/shm/acpmf_physics` exists while ACC is in a session.
+- ACC support is untested — open an issue if you run into problems.
