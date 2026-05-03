@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from collections.abc import Callable
 
 import dearpygui.dearpygui as dpg
 
@@ -15,7 +16,9 @@ _W = 420
 _H = 920
 
 
-def _slider_int(label: str, tag: str, default: int, lo: int, hi: int, cb) -> None:
+def _slider_int(
+    label: str, tag: str, default: int, lo: int, hi: int, cb: Callable[..., None]
+) -> None:
     """Label row + full-width int slider."""
     dpg.add_text(label)
     dpg.add_slider_int(
@@ -25,8 +28,10 @@ def _slider_int(label: str, tag: str, default: int, lo: int, hi: int, cb) -> Non
     )
 
 
-def _slider_float(label: str, tag: str, default: float, lo: float, hi: float, cb,
-                  fmt: str = "%.2f") -> None:
+def _slider_float(
+    label: str, tag: str, default: float, lo: float, hi: float, cb: Callable[..., None],
+    fmt: str = "%.2f",
+) -> None:
     """Label row + full-width float slider."""
     dpg.add_text(label)
     dpg.add_slider_float(

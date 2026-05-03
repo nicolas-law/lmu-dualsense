@@ -109,6 +109,6 @@ class DualSenseController:
 
 
 def _apply_effect(trigger: object, effect: TriggerEffect) -> None:
-    trigger.setMode(effect.mode)  # type: ignore[union-attr]
+    trigger.setMode(effect.mode)  # type: ignore[attr-defined]
     for force_id, value in effect.forces.items():
-        trigger.setForce(force_id, value)  # type: ignore[union-attr]
+        trigger.setForce(force_id, value)  # type: ignore[attr-defined]

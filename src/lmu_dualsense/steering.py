@@ -44,13 +44,13 @@ class VirtualSteering:
             ecodes.EV_ABS: [(ecodes.ABS_X, AbsInfo(0, -_AXIS_MAX, _AXIS_MAX, 16, 128, 0))],
             ecodes.EV_KEY: [ecodes.BTN_SOUTH],  # minimal button so games recognise as gamepad
         }
-        self._ui = UInput(cap, name="lmu-dualsense-steering")
+        self._ui = UInput(cap, name="lmu-dualsense-steering")  # type: ignore[arg-type]
         logger.info("Virtual steering device opened: %s", self._ui.device.path)
 
     def close(self) -> None:
         if self._ui is not None:
             self._write(0)
-            self._ui.close()
+            self._ui.close()  # type: ignore[no-untyped-call]
             self._ui = None
             logger.info("Virtual steering device closed")
 
@@ -86,4 +86,4 @@ class VirtualSteering:
     def _write(self, value: int) -> None:
         if self._ui is not None:
             self._ui.write(ecodes.EV_ABS, ecodes.ABS_X, value)
-            self._ui.syn()
+            self._ui.syn()  # type: ignore[no-untyped-call]
