@@ -31,6 +31,47 @@ _SHM_CANDIDATES = [
 
 _BUFFER_SIZE = ctypes.sizeof(_TelemetryBuffer)
 
+# Graphics buffer: slot ID of the vehicle currently on screen.
+# Layout: 8-byte version block, then rF2GraphicsInfo.
+# mID (long, 4 bytes) is at offset 128 within rF2GraphicsInfo:
+#   mCamPos(24) + mCamOri[3](72) + mHWND(8, 64-bit ptr) + 3×ambient double(24) = 128.
+_GRAPHICS_ID = "rFactor2SMMP_Graphics"
+_GRAPHICS_ID_OFFSET = 136  # 8 (version block) + 128 (into rF2GraphicsInfo)
+_GRAPHICS_CANDIDATES = [
+    f"/dev/shm/${_GRAPHICS_ID}$",
+    f"/dev/shm//${_GRAPHICS_ID}$",
+    f"/dev/shm/wine_${_GRAPHICS_ID}$",
+    f"/dev/shm/Wine_Sharedmem_${_GRAPHICS_ID}$",
+]
+
+
+def _read_player_slot_id() -> int:
+    """Return the slot ID of the vehicle currently on screen, or -1 if unavailable."""
+    for candidate in _GRAPHICS_CANDIDATES:
+        p = Path(candidate)
+        if not p.exists():
+            continue
+        try:
+            with open(p, "rb") as f:
+                f.seek(_GRAPHICS_ID_OFFSET)
+                data = f.read(4)
+                if len(data) == 4:
+                    return int.from_bytes(data, "little", signed=True)
+        except OSError:
+            pass
+    shm_dir = Path("/dev/shm")
+    for entry in shm_dir.iterdir():
+        if _GRAPHICS_ID in entry.name:
+            try:
+                with open(entry, "rb") as f:
+                    f.seek(_GRAPHICS_ID_OFFSET)
+                    data = f.read(4)
+                    if len(data) == 4:
+                        return int.from_bytes(data, "little", signed=True)
+            except OSError:
+                pass
+    return -1
+
 
 class TelemetryNotAvailable(Exception):
     """Raised when the rF2 shared memory cannot be located or has no vehicles."""
@@ -129,6 +170,12 @@ class SharedMemoryProvider:
 
         if buf.mNumVehicles == 0:
             return None
+
+        slot_id = _read_player_slot_id()
+        num = min(buf.mNumVehicles, len(buf.mVehicles))
+        for i in range(num):
+            if slot_id < 0 or buf.mVehicles[i].mID == slot_id:
+                return _extract(buf.mVehicles[i])
 
         return _extract(buf.mVehicles[0])
 
