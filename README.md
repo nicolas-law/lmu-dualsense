@@ -104,10 +104,8 @@ pip install -e ".[dev]"
 Run lmu-dualsense automatically with the game. In Steam → Le Mans Ultimate → Properties → **Launch Options**:
 
 ```
-WINEDLLOVERRIDES="LMU_SharedMemoryMapPlugin64=n,b;rFactor2SharedMemoryMapPlugin64_Wine=n,b" bash -c '/path/to/lmu-dualsense & PID1=$!; lmu-dualsense-gui & PID2=$!; %command%; kill $PID1 $PID2'
+WINEDLLOVERRIDES="LMU_SharedMemoryMapPlugin64=n,b;rFactor2SharedMemoryMapPlugin64_Wine=n,b" bash -c 'lmu-dualsense & PID=$!; %command%; kill $PID'
 ```
-
-Replace `/path/to/lmu-dualsense` with the output of `which lmu-dualsense`.
 
 ---
 
@@ -116,14 +114,10 @@ Replace `/path/to/lmu-dualsense` with the output of `which lmu-dualsense`.
 Start your game and load into a session, then:
 
 ```bash
-# Headless — trigger and rumble effects only
 lmu-dualsense
-
-# With live GUI — telemetry display and real-time tuning sliders
-lmu-dualsense-gui
 ```
 
-The tool retries every 5 seconds until shared memory is found. Press **Ctrl-C** to stop cleanly — motors and triggers are reset on exit.
+This opens the live overlay with telemetry display and real-time tuning sliders. The tool retries every 5 seconds until shared memory is found. Press **Ctrl-C** or close the window to stop cleanly — motors and triggers are reset on exit.
 
 ---
 

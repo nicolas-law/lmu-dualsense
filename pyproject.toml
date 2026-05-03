@@ -22,8 +22,7 @@ dev = [
 ]
 
 [project.scripts]
-lmu-dualsense     = "lmu_dualsense.feedback:main"
-lmu-dualsense-gui = "lmu_dualsense.gui:main"
+lmu-dualsense = "lmu_dualsense.gui:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lmu_dualsense"]
