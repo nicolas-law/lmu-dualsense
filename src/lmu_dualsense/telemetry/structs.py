@@ -51,7 +51,7 @@ class _Wheel(ctypes.Structure):
         ("mLateralForce", ctypes.c_double),        # Newtons
         ("mLongitudinalForce", ctypes.c_double),   # Newtons
         ("mTireLoad", ctypes.c_double),            # Newtons
-        ("mGripFract", ctypes.c_double),  # 0 = full grip, ~1 = full slide
+        ("mGripFract", ctypes.c_double),  # grip fraction: 1.0 = full grip, ~0.0 = full slide
         ("mPressure", ctypes.c_double),
         ("mTemperature", ctypes.c_double * 3),
         ("mWear", ctypes.c_double),

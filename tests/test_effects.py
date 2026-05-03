@@ -10,11 +10,15 @@ from lmu_dualsense.telemetry.base import TelemetryState
 _CFG = TriggerConfig()
 _RCFG = RumbleConfig()
 
+# mGripFract: 1.0 = full grip, ~0.0 = full slide.
+_FULL_GRIP: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)
+_NO_GRIP: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+
 
 def _state(
     throttle: float = 0.0,
     brake: float = 0.0,
-    wheel_grip: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
+    wheel_grip: tuple[float, float, float, float] = _FULL_GRIP,
     abs_active: bool = False,
 ) -> TelemetryState:
     return TelemetryState(
@@ -29,7 +33,7 @@ def _state(
 
 
 # ---------------------------------------------------------------------------
-# Rigid mode layout: forces[0]=start, forces[1]=end, forces[2]=strength.
+# Brake trigger
 # ---------------------------------------------------------------------------
 
 
@@ -40,7 +44,6 @@ class TestBrakeEffect:
         assert left.forces[1] == 0
 
     def test_easy_zone_is_flat(self) -> None:
-        # Any brake above 2% but below threshold stays at brake_easy_resistance
         for brake in (0.1, 0.25, 0.40, _CFG.brake_threshold):
             left, _ = compute_effects(_state(brake=brake), _CFG)
             assert left.mode == TriggerModes.Rigid
@@ -61,23 +64,25 @@ class TestBrakeEffect:
         left, _ = compute_effects(_state(brake=0.8), _CFG)
         assert left.forces[0] == 0
 
-    def test_abs_pulse_when_front_wheels_slide(self) -> None:
-        grip = _CFG.abs_grip_threshold + 0.05
-        left, _ = compute_effects(_state(brake=0.8, wheel_grip=(grip, grip, 0.0, 0.0)), _CFG)
+    def test_abs_pulse_when_front_grip_drops(self) -> None:
+        # Grip drops well below threshold → ABS pulse
+        low_grip = _CFG.abs_grip_threshold - 0.20
+        left, _ = compute_effects(_state(brake=0.8, wheel_grip=(low_grip, low_grip, 1.0, 1.0)), _CFG)
         assert left.mode == TriggerModes.Pulse
 
     def test_abs_pulse_when_abs_active_flag(self) -> None:
         left, _ = compute_effects(_state(brake=0.8, abs_active=True), _CFG)
         assert left.mode == TriggerModes.Pulse
 
-    def test_no_abs_when_grip_below_threshold(self) -> None:
-        grip = _CFG.abs_grip_threshold - 0.05
-        left, _ = compute_effects(_state(brake=0.9, wheel_grip=(grip, grip, 0.0, 0.0)), _CFG)
+    def test_no_abs_when_grip_normal(self) -> None:
+        # Grip is high (normal driving) → no ABS pulse
+        left, _ = compute_effects(_state(brake=0.9, wheel_grip=_FULL_GRIP), _CFG)
         assert left.mode == TriggerModes.Rigid
 
     def test_no_abs_when_brake_too_light(self) -> None:
-        grip = _CFG.abs_grip_threshold + 0.1
-        left, _ = compute_effects(_state(brake=0.05, wheel_grip=(grip, grip, 0.0, 0.0)), _CFG)
+        # Even if grip is low, brake must exceed 0.1
+        low_grip = _CFG.abs_grip_threshold - 0.20
+        left, _ = compute_effects(_state(brake=0.05, wheel_grip=(low_grip, low_grip, 1.0, 1.0)), _CFG)
         assert left.mode == TriggerModes.Rigid
 
 
@@ -107,19 +112,18 @@ class TestThrottleEffect:
         _, right = compute_effects(_state(throttle=0.5), _CFG)
         assert right.forces[0] == 0
 
-    def test_wheelspin_pulse_when_rear_slides(self) -> None:
-        grip = _CFG.wheelspin_grip_threshold + 0.05
-        _, right = compute_effects(_state(throttle=0.9, wheel_grip=(0.0, 0.0, grip, grip)), _CFG)
+    def test_wheelspin_pulse_when_rear_grip_drops(self) -> None:
+        low_grip = _CFG.wheelspin_grip_threshold - 0.20
+        _, right = compute_effects(_state(throttle=0.9, wheel_grip=(1.0, 1.0, low_grip, low_grip)), _CFG)
         assert right.mode == TriggerModes.Pulse
 
-    def test_no_wheelspin_below_threshold(self) -> None:
-        grip = _CFG.wheelspin_grip_threshold - 0.05
-        _, right = compute_effects(_state(throttle=0.9, wheel_grip=(0.0, 0.0, grip, grip)), _CFG)
+    def test_no_wheelspin_when_grip_normal(self) -> None:
+        _, right = compute_effects(_state(throttle=0.9, wheel_grip=_FULL_GRIP), _CFG)
         assert right.mode == TriggerModes.Rigid
 
     def test_no_wheelspin_at_low_throttle(self) -> None:
-        grip = _CFG.wheelspin_grip_threshold + 0.1
-        _, right = compute_effects(_state(throttle=0.2, wheel_grip=(0.0, 0.0, grip, grip)), _CFG)
+        low_grip = _CFG.wheelspin_grip_threshold - 0.20
+        _, right = compute_effects(_state(throttle=0.2, wheel_grip=(1.0, 1.0, low_grip, low_grip)), _CFG)
         assert right.mode == TriggerModes.Rigid
 
 
@@ -129,9 +133,9 @@ class TestThrottleEffect:
 
 
 class TestRumbleEffect:
-    def test_no_slip_no_rumble(self) -> None:
-        r = compute_rumble(_state(), _RCFG)
-        # Engine drone only (engine_rpm=6000, max=12000 → 0.5 * 20 = 10)
+    def test_full_grip_only_engine_drone(self) -> None:
+        r = compute_rumble(_state(wheel_grip=_FULL_GRIP), _RCFG)
+        # Only engine drone: 6000/12000 * 20 = 10
         assert r.left == r.right == 10
 
     def test_disabled_returns_zero(self) -> None:
@@ -139,70 +143,70 @@ class TestRumbleEffect:
         r = compute_rumble(_state(), cfg)
         assert r == RumbleEffect(left=0, right=0)
 
-    def test_below_threshold_no_grip_rumble(self) -> None:
-        slip = _RCFG.grip_threshold - 0.01
-        r = compute_rumble(_state(wheel_grip=(slip, slip, slip, slip)), _RCFG)
-        # Only engine drone
-        assert r.left == r.right
+    def test_above_threshold_no_grip_rumble(self) -> None:
+        # Grip just above threshold → no grip component
+        grip = _RCFG.grip_threshold + 0.01
+        r = compute_rumble(_state(wheel_grip=(grip, grip, grip, grip)), _RCFG)
+        assert r.left == r.right  # only engine drone
 
     def test_full_slide_left_side(self) -> None:
-        r = compute_rumble(_state(wheel_grip=(1.0, 0.0, 1.0, 0.0)), _RCFG)
+        r = compute_rumble(_state(wheel_grip=(0.0, 1.0, 0.0, 1.0)), _RCFG)
         assert r.left > r.right
 
     def test_full_slide_right_side(self) -> None:
-        r = compute_rumble(_state(wheel_grip=(0.0, 1.0, 0.0, 1.0)), _RCFG)
+        r = compute_rumble(_state(wheel_grip=(1.0, 0.0, 1.0, 0.0)), _RCFG)
         assert r.right > r.left
 
     def test_full_slide_both_sides(self) -> None:
-        r = compute_rumble(_state(wheel_grip=(1.0, 1.0, 1.0, 1.0)), _RCFG)
+        r = compute_rumble(_state(wheel_grip=_NO_GRIP), _RCFG)
         assert r.left == r.right
         assert r.left >= _RCFG.grip_max_intensity
 
-    def test_rear_only_slip_fires(self) -> None:
-        slip = _RCFG.grip_threshold + 0.1
-        r = compute_rumble(_state(wheel_grip=(0.0, 0.0, slip, slip)), _RCFG)
+    def test_rear_only_slide_fires(self) -> None:
+        low_grip = _RCFG.grip_threshold - 0.10
+        r = compute_rumble(_state(wheel_grip=(1.0, 1.0, low_grip, low_grip)), _RCFG)
         assert r.left > 0 and r.right > 0
 
-    def test_front_only_slip_fires(self) -> None:
-        slip = _RCFG.grip_threshold + 0.1
-        r = compute_rumble(_state(wheel_grip=(slip, slip, 0.0, 0.0)), _RCFG)
+    def test_front_only_slide_fires(self) -> None:
+        low_grip = _RCFG.grip_threshold - 0.10
+        r = compute_rumble(_state(wheel_grip=(low_grip, low_grip, 1.0, 1.0)), _RCFG)
         assert r.left > 0 and r.right > 0
 
     def test_clamped_to_255(self) -> None:
         cfg = RumbleConfig(grip_max_intensity=255, engine_max_intensity=255)
-        r = compute_rumble(_state(wheel_grip=(1.0, 1.0, 1.0, 1.0)), cfg)
+        r = compute_rumble(_state(wheel_grip=_NO_GRIP), cfg)
         assert r.left <= 255 and r.right <= 255
 
     def test_intensity_scales_with_slip(self) -> None:
-        slip_lo = _RCFG.grip_threshold + 0.05
-        slip_hi = _RCFG.grip_threshold + 0.40
-        r_lo = compute_rumble(_state(wheel_grip=(slip_lo, slip_lo, 0.0, 0.0)), _RCFG)
-        r_hi = compute_rumble(_state(wheel_grip=(slip_hi, slip_hi, 0.0, 0.0)), _RCFG)
+        grip_lo = _RCFG.grip_threshold - 0.05   # just sliding
+        grip_hi = 0.01                            # nearly full slide
+        r_lo = compute_rumble(_state(wheel_grip=(grip_lo, grip_lo, 1.0, 1.0)), _RCFG)
+        r_hi = compute_rumble(_state(wheel_grip=(grip_hi, grip_hi, 1.0, 1.0)), _RCFG)
         assert r_hi.left > r_lo.left
 
 
 # ---------------------------------------------------------------------------
-# ABS pulse scaling
+# ABS and wheelspin pulse scaling
 # ---------------------------------------------------------------------------
 
 
-class TestAbsPulseScaling:
-    def test_abs_pulse_at_threshold_is_lighter_than_full_slide(self) -> None:
+class TestPulseScaling:
+    def test_abs_pulse_mild_lighter_than_full_lock(self) -> None:
         threshold = _CFG.abs_grip_threshold
-        mild_grip = threshold + 0.01
-        full_grip = 0.99
-        mild, _ = compute_effects(_state(brake=0.8, wheel_grip=(mild_grip, mild_grip, 0.0, 0.0)), _CFG)
-        hard, _ = compute_effects(_state(brake=0.8, wheel_grip=(full_grip, full_grip, 0.0, 0.0)), _CFG)
+        mild_grip = threshold - 0.05   # just below threshold
+        full_lock = 0.01               # nearly zero
+        mild, _ = compute_effects(_state(brake=0.8, wheel_grip=(mild_grip, mild_grip, 1.0, 1.0)), _CFG)
+        hard, _ = compute_effects(_state(brake=0.8, wheel_grip=(full_lock, full_lock, 1.0, 1.0)), _CFG)
         assert mild.mode == TriggerModes.Pulse
         assert hard.mode == TriggerModes.Pulse
         assert hard.forces[1] > mild.forces[1]
 
-    def test_wheelspin_pulse_scales_with_rear_grip(self) -> None:
+    def test_wheelspin_pulse_scales_with_rear_slip(self) -> None:
         threshold = _CFG.wheelspin_grip_threshold
-        mild_grip = threshold + 0.01
-        full_grip = 0.99
-        _, mild = compute_effects(_state(throttle=0.9, wheel_grip=(0.0, 0.0, mild_grip, mild_grip)), _CFG)
-        _, hard = compute_effects(_state(throttle=0.9, wheel_grip=(0.0, 0.0, full_grip, full_grip)), _CFG)
+        mild_grip = threshold - 0.05
+        full_spin = 0.01
+        _, mild = compute_effects(_state(throttle=0.9, wheel_grip=(1.0, 1.0, mild_grip, mild_grip)), _CFG)
+        _, hard = compute_effects(_state(throttle=0.9, wheel_grip=(1.0, 1.0, full_spin, full_spin)), _CFG)
         assert mild.mode == TriggerModes.Pulse
         assert hard.mode == TriggerModes.Pulse
         assert hard.forces[2] > mild.forces[2]

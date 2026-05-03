@@ -10,7 +10,7 @@ class TelemetryState:
     speed_ms: float        # m/s, total velocity magnitude
     engine_rpm: float
     engine_max_rpm: float
-    # Per-wheel sliding fraction: 0.0 = full grip, →1.0 = full slide.
+    # Per-wheel grip fraction (mGripFract): 1.0 = full grip, →0.0 = full slide.
     # Order matches rF2 convention: FL=0, FR=1, RL=2, RR=3.
     wheel_grip: tuple[float, float, float, float]
     # True when the game reports ABS is actively intervening this frame.

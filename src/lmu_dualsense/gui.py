@@ -254,7 +254,7 @@ def _refresh(app_state: AppState) -> None:
 
     abs_on = tel.abs_active or (
         tel.brake > 0.1
-        and max(tel.wheel_grip[0], tel.wheel_grip[1]) > cfg.abs_grip_threshold
+        and min(tel.wheel_grip[0], tel.wheel_grip[1]) < cfg.abs_grip_threshold
     )
     if abs_on:
         dpg.set_value("t_abs", "YES")
@@ -263,8 +263,9 @@ def _refresh(app_state: AppState) -> None:
         dpg.set_value("t_abs", "no")
         dpg.configure_item("t_abs", color=(100, 210, 100))
 
-    dpg.set_value("t_grip_f", f"Grip front: {tel.wheel_grip[0]:.2f} / {tel.wheel_grip[1]:.2f}")
-    dpg.set_value("t_grip_r", f"Grip rear:  {tel.wheel_grip[2]:.2f} / {tel.wheel_grip[3]:.2f}")
+    fl, fr, rl, rr = tel.wheel_grip
+    dpg.set_value("t_grip_f", f"Grip front: FL {fl:.2f} / FR {fr:.2f}")
+    dpg.set_value("t_grip_r", f"Grip rear:  RL {rl:.2f} / RR {rr:.2f}")
 
     l2, r2 = app_state.l2_effect, app_state.r2_effect
     dpg.set_value("t_l2", f"{l2.mode.name}  force={l2.forces.get(1, 0)}" if l2 else "-")

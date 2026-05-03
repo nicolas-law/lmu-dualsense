@@ -157,8 +157,8 @@ def _run_loop(
                     "Brake: %.2f | ABS: %s | Front Grip: %.2f | Rear Grip: %.2f | Speed: %.0f km/h",
                     state.brake,
                     "Y" if state.abs_active else "N",
-                    max(state.wheel_grip[0], state.wheel_grip[1]),
-                    max(state.wheel_grip[2], state.wheel_grip[3]),
+                    min(state.wheel_grip[0], state.wheel_grip[1]),
+                    min(state.wheel_grip[2], state.wheel_grip[3]),
                     state.speed_ms * 3.6,
                 )
 

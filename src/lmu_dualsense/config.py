@@ -35,7 +35,9 @@ class TriggerConfig:
     # Right trigger (throttle)
     throttle_base_resistance: int = 5    # 0-255, idle feel
     throttle_max_resistance: int = 70    # 0-255, at full throttle
-    wheelspin_grip_threshold: float = 0.12  # grip-loss above this → wheelspin pulse
+    # mGripFract: 1.0 = full grip, ~0.0 = full slide.
+    # Thresholds below are grip values; effects fire when grip DROPS below them.
+    wheelspin_grip_threshold: float = 0.50  # rear grip below this → wheelspin pulse
 
     # Left trigger (brake)
     brake_max_resistance: int = 255      # 0-255, resistance at full brake (100% brake)
@@ -44,7 +46,7 @@ class TriggerConfig:
     #   hard zone  (threshold → 1): resistance ramps up — prevents over-braking
     brake_threshold: float = 0.50        # bite point where resistance kicks in
     brake_easy_resistance: int = 0       # resistance in easy zone (0 = natural spring feel)
-    abs_grip_threshold: float = 0.10    # grip-loss above this during braking → ABS pulse
+    abs_grip_threshold: float = 0.50    # front grip below this during braking → ABS pulse
 
 
 @dataclass
@@ -52,8 +54,8 @@ class RumbleConfig:
     enabled: bool = True
     # Per-side grip rumble: FL+RL → left motor, FR+RR → right motor.
     # Fires during front lock-up (braking) and rear wheelspin (acceleration).
-    grip_max_intensity: int = 180        # 0-255, intensity at full slide
-    grip_threshold: float = 0.08        # grip-loss below this → no rumble
+    grip_max_intensity: int = 180        # 0-255, intensity at full slide (grip = 0.0)
+    grip_threshold: float = 0.60        # grip below this → rumble starts (1.0 = full grip)
     # Very subtle RPM drone so the car feels alive at idle/high revs.
     engine_max_intensity: int = 20       # 0-255, keep low so grip signals dominate
 
