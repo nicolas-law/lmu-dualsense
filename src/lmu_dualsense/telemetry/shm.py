@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 from lmu_dualsense.telemetry.base import TelemetryState
+from lmu_dualsense.telemetry.scoring import read_player_info
 from lmu_dualsense.telemetry.structs import _TelemetryBuffer, _VehicleTelemetry
 
 # Buffer name used by LMU_SharedMemoryMapPlugin / rF2SharedMemoryMapPlugin.
@@ -215,16 +216,17 @@ class SharedMemoryProvider:
         if buf.mNumVehicles == 0:
             return None
 
-        slot_id = _read_player_slot_id()
+        player_slot, session_type = read_player_info()
         num = min(buf.mNumVehicles, len(buf.mVehicles))
         for i in range(num):
-            if slot_id < 0 or buf.mVehicles[i].mID == slot_id:
-                return _extract(buf.mVehicles[i])
+            if player_slot < 0 or buf.mVehicles[i].mID == player_slot:
+                return _extract(buf.mVehicles[i], session_type)
 
-        return _extract(buf.mVehicles[0])
+        # Scoring buffer unavailable or slot not found — fall back to first vehicle
+        return _extract(buf.mVehicles[0], session_type)
 
 
-def _extract(v: _VehicleTelemetry) -> TelemetryState:
+def _extract(v: _VehicleTelemetry, session_type: str = "unknown") -> TelemetryState:
     lv = v.mLocalVel
     speed = math.sqrt(lv.x * lv.x + lv.y * lv.y + lv.z * lv.z)
 
@@ -259,4 +261,5 @@ def _extract(v: _VehicleTelemetry) -> TelemetryState:
         ),
         pos_x=float(v.mPos.x),
         pos_z=float(v.mPos.z),
+        session_type=session_type,
     )

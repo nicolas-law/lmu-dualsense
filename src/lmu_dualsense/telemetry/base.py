@@ -31,3 +31,5 @@ class TelemetryState:
     tire_wear: tuple[float, float, float, float] = field(default=(0.0, 0.0, 0.0, 0.0))
     pos_x: float = field(default=0.0)             # world X (circuit layout plane)
     pos_z: float = field(default=0.0)             # world Z (circuit layout plane; Y is vertical)
+    # Session type from scoring buffer: 'practice', 'qualifying', 'warmup', 'race', 'unknown'
+    session_type: str = field(default="unknown")

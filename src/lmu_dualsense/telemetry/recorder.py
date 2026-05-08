@@ -143,8 +143,8 @@ class Recorder:
         now = _now()
         assert self._conn is not None
         cur = self._conn.execute(
-            "INSERT INTO sessions (track, vehicle, started_at) VALUES (?, ?, ?)",
-            (state.track_name, state.vehicle_name, now),
+            "INSERT INTO sessions (track, vehicle, session_type, started_at) VALUES (?, ?, ?, ?)",
+            (state.track_name, state.vehicle_name, state.session_type, now),
         )
         self._session_id = cur.lastrowid
         self._conn.commit()

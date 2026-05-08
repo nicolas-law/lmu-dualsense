@@ -53,6 +53,7 @@ def create_app(app_state: AppState, recorder: Recorder) -> FastAPI:
             "game": app_state.game,
             "track": tel.track_name,
             "vehicle": tel.vehicle_name,
+            "session_type": tel.session_type,
             "lap": tel.lap_number,
             "lap_elapsed": round(tel.lap_elapsed, 2),
             "session_elapsed": round(tel.session_elapsed, 2),
@@ -341,7 +342,7 @@ async function refresh() {{
       document.getElementById('status').textContent = d.game + ' — waiting for session…';
       return;
     }}
-    document.getElementById('status').textContent = d.game + ' • ' + d.track + ' • ' + d.vehicle;
+    document.getElementById('status').textContent = d.game + ' • ' + d.track + ' • ' + d.session_type.toUpperCase() + ' • ' + d.vehicle;
     document.getElementById('speed').textContent = d.speed_kmh;
     document.getElementById('lap').textContent = 'Lap ' + d.lap;
     document.getElementById('lap_time').textContent = fmtTime(d.lap_elapsed);
