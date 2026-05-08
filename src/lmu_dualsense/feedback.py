@@ -16,7 +16,11 @@ from lmu_dualsense.controller.effects import (
     compute_rumble,
 )
 from lmu_dualsense.steering import VirtualSteering
-from lmu_dualsense.telemetry.acc_shm import AccSharedMemoryProvider, acc_shm_path
+from lmu_dualsense.telemetry.acc_shm import (
+    AccSharedMemoryProvider,
+    AccTelemetryNotAvailable,
+    acc_shm_path,
+)
 from lmu_dualsense.telemetry.base import TelemetryState
 from lmu_dualsense.telemetry.recorder import Recorder
 from lmu_dualsense.telemetry.shm import SharedMemoryProvider, TelemetryNotAvailable, _find_shm_path
@@ -56,9 +60,12 @@ def _detect_provider() -> tuple[_Provider, str]:
         pass
 
     if acc_shm_path() is not None:
-        p = AccSharedMemoryProvider()
-        p.open()
-        return p, "Assetto Corsa Competizione"
+        try:
+            p = AccSharedMemoryProvider()
+            p.open()
+            return p, "Assetto Corsa Competizione"
+        except AccTelemetryNotAvailable:
+            pass  # stale ACC shm from a previous session
 
     raise TelemetryNotAvailable(
         "No supported game found. Start Le Mans Ultimate or Assetto Corsa Competizione "
