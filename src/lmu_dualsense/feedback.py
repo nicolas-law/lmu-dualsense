@@ -18,6 +18,7 @@ from lmu_dualsense.controller.effects import (
 from lmu_dualsense.steering import VirtualSteering
 from lmu_dualsense.telemetry.acc_shm import AccSharedMemoryProvider, acc_shm_path
 from lmu_dualsense.telemetry.base import TelemetryState
+from lmu_dualsense.telemetry.recorder import Recorder
 from lmu_dualsense.telemetry.shm import SharedMemoryProvider, TelemetryNotAvailable, _find_shm_path
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,7 @@ def _run_loop(
     interval: float,
     should_stop: Callable[[], bool],
     app_state: AppState | None = None,
+    recorder: Recorder | None = None,
 ) -> None:
     provider: _Provider | None = None
     steering: VirtualSteering | None = None
@@ -152,15 +154,24 @@ def _run_loop(
                 app_state.r2_effect = right
                 app_state.rumble_effect = rumble
 
+            if recorder is not None:
+                recorder.record(state)
+
             if time.time() % 1.0 < interval:
+                front_grip = min(state.wheel_grip[0], state.wheel_grip[1])
+                abs_on = state.abs_active or (
+                    state.brake > 0.1 and front_grip < cfg.triggers.abs_grip_threshold
+                )
                 logger.info(
                     "Brake: %.2f | ABS: %s | Front Grip: %.2f | Rear Grip: %.2f | Speed: %.0f km/h",
                     state.brake,
-                    "Y" if state.abs_active else "N",
-                    min(state.wheel_grip[0], state.wheel_grip[1]),
+                    "Y" if abs_on else "N",
+                    front_grip,
                     min(state.wheel_grip[2], state.wheel_grip[3]),
                     state.speed_ms * 3.6,
                 )
+        elif ctrl.connected:
+            ctrl.reset_feedback()
 
         if steering is not None and ctrl.connected:
             speed = state.speed_ms if state is not None else 0.0

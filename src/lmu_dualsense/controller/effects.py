@@ -95,6 +95,8 @@ def _brake_effect(state: TelemetryState, cfg: TriggerConfig) -> TriggerEffect:
         t = (b - cfg.brake_threshold) / (1.0 - cfg.brake_threshold)
         span = cfg.brake_max_resistance - cfg.brake_easy_resistance
         strength = int(cfg.brake_easy_resistance + t * span)
+    if strength == 0:
+        return TriggerEffect(mode=TriggerModes.Off, forces={})
     return TriggerEffect(mode=TriggerModes.Rigid, forces={0: 0, 1: strength})
 
 

@@ -8,7 +8,9 @@ import dearpygui.dearpygui as dpg
 
 from lmu_dualsense.config import Config, RumbleConfig, SteeringConfig
 from lmu_dualsense.controller.dualsense import DualSenseController
+from lmu_dualsense.dashboard import server as dashboard
 from lmu_dualsense.feedback import AppState, _run_loop
+from lmu_dualsense.telemetry.recorder import Recorder
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +287,8 @@ def main() -> None:
     cfg = Config()
     app_state = AppState(config=cfg.triggers)
     stopped = threading.Event()
+    recorder = Recorder()
+    recorder.open()
 
     def _worker() -> None:
         with DualSenseController() as ctrl:
@@ -294,9 +298,11 @@ def main() -> None:
                 interval=1.0 / cfg.telemetry.poll_rate_hz,
                 should_stop=stopped.is_set,
                 app_state=app_state,
+                recorder=recorder,
             )
 
     threading.Thread(target=_worker, daemon=True).start()
+    dashboard.start(app_state, recorder)
 
     dpg.create_context()
     _build_ui(app_state, cfg.rumble, cfg.steering)

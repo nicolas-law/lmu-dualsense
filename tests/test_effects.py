@@ -40,14 +40,21 @@ def _state(
 class TestBrakeEffect:
     def test_idle_is_off(self) -> None:
         left, _ = compute_effects(_state(), _CFG)
-        assert left.mode == TriggerModes.Rigid
-        assert left.forces[1] == 0
+        assert left.mode == TriggerModes.Off
 
-    def test_easy_zone_is_flat(self) -> None:
+    def test_easy_zone_zero_resistance_is_off(self) -> None:
+        # Default brake_easy_resistance=0 → natural spring, not stiff
         for brake in (0.1, 0.25, 0.40, _CFG.brake_threshold):
             left, _ = compute_effects(_state(brake=brake), _CFG)
+            assert left.mode == TriggerModes.Off
+
+    def test_easy_zone_nonzero_resistance_is_rigid(self) -> None:
+        from lmu_dualsense.config import TriggerConfig
+        cfg = TriggerConfig(brake_easy_resistance=50)
+        for brake in (0.1, 0.25, 0.40):
+            left, _ = compute_effects(_state(brake=brake), cfg)
             assert left.mode == TriggerModes.Rigid
-            assert left.forces[1] == _CFG.brake_easy_resistance
+            assert left.forces[1] == 50
 
     def test_above_threshold_ramps_to_max(self) -> None:
         left, _ = compute_effects(_state(brake=1.0), _CFG)
@@ -80,10 +87,10 @@ class TestBrakeEffect:
         assert left.mode == TriggerModes.Rigid
 
     def test_no_abs_when_brake_too_light(self) -> None:
-        # Even if grip is low, brake must exceed 0.1
+        # Even if grip is low, brake must exceed 0.1 to trigger ABS pulse
         low_grip = _CFG.abs_grip_threshold - 0.20
         left, _ = compute_effects(_state(brake=0.05, wheel_grip=(low_grip, low_grip, 1.0, 1.0)), _CFG)
-        assert left.mode == TriggerModes.Rigid
+        assert left.mode != TriggerModes.Pulse
 
 
 # ---------------------------------------------------------------------------

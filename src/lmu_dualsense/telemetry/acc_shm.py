@@ -10,6 +10,7 @@ import ctypes
 import math
 import mmap
 import os
+import time
 from pathlib import Path
 
 from lmu_dualsense.telemetry.acc_structs import _AccPhysics
@@ -23,6 +24,7 @@ _SHM_CANDIDATES = [
 ]
 
 _BUFFER_SIZE = ctypes.sizeof(_AccPhysics)
+_STALE_TIMEOUT = 10.0
 
 # ACC exposes slip ratio (0 = no slip). Normalise to the same 0→1 "grip loss"
 # scale used by the LMU provider so the existing effect thresholds apply.
@@ -63,9 +65,13 @@ class AccSharedMemoryProvider:
     def __init__(self) -> None:
         self._mm: mmap.mmap | None = None
         self._fd: int | None = None
+        self._last_packet_id: int = -1
+        self._last_packet_time: float = 0.0
 
     def open(self) -> None:
         path = acc_shm_path()
+        self._last_packet_id = -1
+        self._last_packet_time = time.monotonic()
         if path is None:
             raise AccTelemetryNotAvailable(
                 "ACC shared memory not found in /dev/shm/. "
@@ -111,6 +117,18 @@ class AccSharedMemoryProvider:
 
         if phys.packetId == 0:
             return None
+
+        packet_id = int(phys.packetId)
+        now = time.monotonic()
+        if packet_id != self._last_packet_id:
+            self._last_packet_id = packet_id
+            self._last_packet_time = now
+        elif now - self._last_packet_time > _STALE_TIMEOUT:
+            from lmu_dualsense.telemetry.shm import TelemetryNotAvailable
+            raise TelemetryNotAvailable(
+                f"ACC shared memory has not updated in {now - self._last_packet_time:.0f}s — "
+                "game has likely exited"
+            )
 
         return _extract(phys)
 

@@ -107,6 +107,11 @@ class DualSenseController:
         self._ds.setRightMotor(effect.right)
         self._last_rumble = effect
 
+    def reset_feedback(self) -> None:
+        """Clear all trigger effects and rumble (called when game exits or session ends)."""
+        self.apply(_TRIGGER_OFF, _TRIGGER_OFF)
+        self.set_rumble(_RUMBLE_OFF)
+
 
 def _apply_effect(trigger: object, effect: TriggerEffect) -> None:
     trigger.setMode(effect.mode)  # type: ignore[attr-defined]

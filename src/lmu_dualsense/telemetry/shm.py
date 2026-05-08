@@ -13,6 +13,7 @@ import ctypes
 import math
 import mmap
 import os
+import time
 from pathlib import Path
 
 from lmu_dualsense.telemetry.base import TelemetryState
@@ -30,6 +31,9 @@ _SHM_CANDIDATES = [
 ]
 
 _BUFFER_SIZE = ctypes.sizeof(_TelemetryBuffer)
+# After game exit, Wine leaves the shm file with frozen data.
+# If the version counter hasn't changed for this many seconds, treat as stale.
+_STALE_TIMEOUT = 10.0
 
 # Graphics buffer: slot ID of the vehicle currently on screen.
 # Layout: 8-byte version block, then rF2GraphicsInfo.
@@ -117,9 +121,13 @@ class SharedMemoryProvider:
     def __init__(self) -> None:
         self._mm: mmap.mmap | None = None
         self._fd: int | None = None
+        self._last_version: int = -1
+        self._last_version_time: float = 0.0
 
     def open(self) -> None:
         path = _find_shm_path()
+        self._last_version = -1
+        self._last_version_time = time.monotonic()
         self._fd = os.open(str(path), os.O_RDONLY)
 
         # Use the actual file size instead of the structure size
@@ -168,6 +176,18 @@ class SharedMemoryProvider:
         if buf.mVersionUpdateBegin != buf.mVersionUpdateEnd:
             return None
 
+        # Detect stale memory: after game exit Wine leaves the file frozen.
+        version = int(buf.mVersionUpdateEnd)
+        now = time.monotonic()
+        if version != self._last_version:
+            self._last_version = version
+            self._last_version_time = now
+        elif now - self._last_version_time > _STALE_TIMEOUT:
+            raise TelemetryNotAvailable(
+                f"rF2 shared memory has not updated in {now - self._last_version_time:.0f}s — "
+                "game has likely exited"
+            )
+
         if buf.mNumVehicles == 0:
             return None
 
@@ -183,6 +203,10 @@ class SharedMemoryProvider:
 def _extract(v: _VehicleTelemetry) -> TelemetryState:
     lv = v.mLocalVel
     speed = math.sqrt(lv.x * lv.x + lv.y * lv.y + lv.z * lv.z)
+
+    session_elapsed = float(v.mElapsedTime)
+    lap_start = float(v.mLapStartET)
+
     return TelemetryState(
         throttle=float(v.mFilteredThrottle),
         brake=float(v.mFilteredBrake),
@@ -195,4 +219,20 @@ def _extract(v: _VehicleTelemetry) -> TelemetryState:
             float(v.mWheels[2].mGripFract),
             float(v.mWheels[3].mGripFract),
         ),
+        lap_number=int(v.mLapNumber),
+        lap_elapsed=max(0.0, session_elapsed - lap_start),
+        session_elapsed=session_elapsed,
+        track_name=bytes(v.mTrackName).rstrip(b"\x00").decode("utf-8", errors="replace"),
+        vehicle_name=bytes(v.mVehicleName).rstrip(b"\x00").decode("utf-8", errors="replace"),
+        gear=int(v.mGear),
+        fuel=float(v.mFuel),
+        steering=float(v.mFilteredSteering),
+        tire_wear=(
+            float(v.mWheels[0].mWear),
+            float(v.mWheels[1].mWear),
+            float(v.mWheels[2].mWear),
+            float(v.mWheels[3].mWear),
+        ),
+        pos_x=float(v.mPos.x),
+        pos_z=float(v.mPos.z),
     )
