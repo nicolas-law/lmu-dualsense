@@ -34,6 +34,9 @@ _BUFFER_SIZE = ctypes.sizeof(_TelemetryBuffer)
 # After game exit, Wine leaves the shm file with frozen data.
 # If the version counter hasn't changed for this many seconds, treat as stale.
 _STALE_TIMEOUT = 10.0
+# At open() time, confirm the plugin is writing by checking for a version change.
+# At 100 Hz, 250 ms = 25 expected writes; any live session will differ.
+_LIVENESS_WAIT = 0.25
 
 # Graphics buffer: slot ID of the vehicle currently on screen.
 # Layout: 8-byte version block, then rF2GraphicsInfo.
@@ -130,12 +133,22 @@ class SharedMemoryProvider:
         self._last_version_time = time.monotonic()
         self._fd = os.open(str(path), os.O_RDONLY)
 
-        # Use the actual file size instead of the structure size
-        # to avoid ValueError if the buffer is smaller than _BUFFER_SIZE
         file_size = os.path.getsize(path)
         map_size = min(file_size, _BUFFER_SIZE)
-
         self._mm = mmap.mmap(self._fd, map_size, access=mmap.ACCESS_READ)
+
+        # Liveness check: verify version increments within 250 ms.
+        # Stale files (left by a previous game session) will fail this check
+        # immediately, preventing false sessions and log spam.
+        v1 = self._peek_version()
+        time.sleep(_LIVENESS_WAIT)
+        v2 = self._peek_version()
+        if v1 == v2:
+            self.close()
+            raise TelemetryNotAvailable(
+                "rF2 shared memory version unchanged after 250 ms — "
+                "plugin not yet initialised (game loading or previously exited)"
+            )
 
     def close(self) -> None:
         if self._mm is not None:
@@ -151,6 +164,17 @@ class SharedMemoryProvider:
 
     def __exit__(self, *_: object) -> None:
         self.close()
+
+    def _peek_version(self) -> int:
+        """Read mVersionUpdateEnd (offset 4) without deserialising the full buffer."""
+        if self._mm is None:
+            return -1
+        try:
+            self._mm.seek(4)
+            data = self._mm.read(4)
+            return int.from_bytes(data, "little", signed=False) if len(data) == 4 else -1
+        except Exception:
+            return -1
 
     def read(self) -> TelemetryState | None:
         """

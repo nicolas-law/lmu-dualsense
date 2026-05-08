@@ -130,6 +130,13 @@ def _run_loop(
 
         try:
             state = provider.read()
+        except TelemetryNotAvailable as exc:
+            logger.info("Session ended: %s", exc)
+            provider.close()
+            provider = None
+            if app_state is not None:
+                app_state.game = "Searching…"
+            continue
         except Exception as exc:
             logger.warning("Telemetry read error (%s) — reopening shared memory", exc)
             provider.close()

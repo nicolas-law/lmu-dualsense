@@ -25,6 +25,7 @@ _SHM_CANDIDATES = [
 
 _BUFFER_SIZE = ctypes.sizeof(_AccPhysics)
 _STALE_TIMEOUT = 10.0
+_LIVENESS_WAIT = 0.25
 
 # ACC exposes slip ratio (0 = no slip). Normalise to the same 0→1 "grip loss"
 # scale used by the LMU provider so the existing effect thresholds apply.
@@ -68,6 +69,17 @@ class AccSharedMemoryProvider:
         self._last_packet_id: int = -1
         self._last_packet_time: float = 0.0
 
+    def _peek_packet_id(self) -> int:
+        """Read packetId (offset 0) without deserialising the full buffer."""
+        if self._mm is None:
+            return -1
+        try:
+            self._mm.seek(0)
+            data = self._mm.read(4)
+            return int.from_bytes(data, "little", signed=True) if len(data) == 4 else -1
+        except Exception:
+            return -1
+
     def open(self) -> None:
         path = acc_shm_path()
         self._last_packet_id = -1
@@ -81,6 +93,16 @@ class AccSharedMemoryProvider:
         file_size = os.path.getsize(path)
         map_size = min(file_size, _BUFFER_SIZE)
         self._mm = mmap.mmap(self._fd, map_size, access=mmap.ACCESS_READ)
+
+        v1 = self._peek_packet_id()
+        time.sleep(_LIVENESS_WAIT)
+        v2 = self._peek_packet_id()
+        if v1 == v2:
+            self.close()
+            raise AccTelemetryNotAvailable(
+                "ACC shared memory version unchanged after 250 ms — "
+                "plugin not yet initialised (game loading or previously exited)"
+            )
 
     def close(self) -> None:
         if self._mm is not None:

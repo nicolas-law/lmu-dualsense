@@ -188,7 +188,7 @@ def _db(recorder: Recorder) -> Generator[sqlite3.Connection, None, None]:
 def start(app_state: AppState, recorder: Recorder, port: int = _PORT) -> uvicorn.Server:
     cfg = uvicorn.Config(
         create_app(app_state, recorder),
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=port,
         log_level="warning",
         access_log=False,
@@ -196,7 +196,7 @@ def start(app_state: AppState, recorder: Recorder, port: int = _PORT) -> uvicorn
     server = uvicorn.Server(cfg)
     t = threading.Thread(target=server.run, daemon=True, name="dashboard-server")
     t.start()
-    logger.info("Dashboard available at http://127.0.0.1:%d", port)
+    logger.info("Dashboard available at http://localhost:%d  (all interfaces)", port)
     return server
 
 
