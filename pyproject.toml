@@ -22,9 +22,13 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+mcp = [
+    "mcp[cli]>=1.0",
+]
 
 [project.scripts]
-sim-dualsense = "lmu_dualsense.gui:main"
+sim-dualsense     = "lmu_dualsense.gui:main"
+sim-dualsense-mcp = "lmu_dualsense.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lmu_dualsense"]
@@ -38,11 +42,16 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/lmu_dualsense/dashboard/server.py" = ["E501"]
+"src/lmu_dualsense/mcp_server.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "lmu_dualsense.mcp_server"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
